@@ -1,9 +1,11 @@
 package main
 
 import (
+	_ "embed"
 	"fmt"
 	"log"
 	"net/http"
+	"text/template"
 	"time"
 
 	"github.com/go-shiori/go-readability"
@@ -33,13 +35,33 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Image   : %s\n", article.Image)
 	fmt.Printf("Favicon : %s\n", article.Favicon)
 	fmt.Println()
-	//fmt.Println(article.TextContent)
 
-	//fmt.Fprintf(w, article.TextContent)
-	fmt.Fprintf(w, article.Content)
+	writeResponse(w, article)
+}
+
+func writeResponse(w http.ResponseWriter, article readability.Article) {
+	if err := tmpl.Execute(w, article); err != nil {
+		log.Println(err)
+	}
+}
+
+var (
+	//go:embed template.html
+	html string
+
+	tmpl *template.Template
+)
+
+func parseTemplate() {
+	tmpl = template.New("")
+	if _, err := tmpl.Parse(html); err != nil {
+		log.Fatalln(err)
+	}
+
 }
 
 func main() {
+	parseTemplate()
 
 	http.HandleFunc("/", handler)
 	http.ListenAndServe(":8080", nil)
