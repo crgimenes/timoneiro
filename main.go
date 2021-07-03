@@ -15,7 +15,8 @@ import (
 )
 
 type config struct {
-	Addr string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
+	Addr    string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
+	Timeout int64  `json:"timeout" cfg:"timeout" cfgDefault:"30" cfgRequired:"true"`
 }
 
 type articleData struct {
@@ -26,7 +27,7 @@ type articleData struct {
 	Content string
 }
 
-func handler(tmpl *template.Template) http.HandlerFunc {
+func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["q"]
 		if !ok {
@@ -36,7 +37,7 @@ func handler(tmpl *template.Template) http.HandlerFunc {
 
 		q := keys[0]
 
-		article, err := readability.FromURL(q, 30*time.Second)
+		article, err := readability.FromURL(q, time.Duration(cfg.Timeout)*time.Second)
 		if err != nil {
 			log.Fatalf("failed to parse %s, %v\n", q, err)
 		}
@@ -84,10 +85,10 @@ func parseTemplate() *template.Template {
 }
 
 func main() {
-	cfg := config{}
+	cfg := &config{}
 	goconfig.File = "timoneiro.json"
 
-	err := goconfig.Parse(&cfg)
+	err := goconfig.Parse(cfg)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -95,7 +96,7 @@ func main() {
 
 	tmpl := parseTemplate()
 	http.HandleFunc("/favicon.ico", http.NotFound)
-	http.HandleFunc("/", handler(tmpl))
+	http.HandleFunc("/", handler(cfg, tmpl))
 
 	fmt.Println("listening on", cfg.Addr)
 
