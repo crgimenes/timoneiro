@@ -69,10 +69,8 @@ func writeResponse(w io.Writer, tmpl *template.Template, data articleData) {
 	}
 }
 
-var (
-	//go:embed template.html
-	html string
-)
+//go:embed template.html
+var html string
 
 func parseTemplate() *template.Template {
 	tmpl := template.New("")
