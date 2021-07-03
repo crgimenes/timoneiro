@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"text/template"
@@ -14,7 +15,8 @@ import (
 )
 
 type config struct {
-	Addr string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
+	Addr    string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
+	Timeout int64  `json:"timeout" cfg:"timeout" cfgDefault:"30" cfgRequired:"true"`
 }
 
 type articleData struct {
@@ -25,7 +27,10 @@ type articleData struct {
 	Content string
 }
 
-func handler(tmpl *template.Template) http.HandlerFunc {
+//go:embed template.html
+var html string // nolint
+
+func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["q"]
 		if !ok {
@@ -35,7 +40,7 @@ func handler(tmpl *template.Template) http.HandlerFunc {
 
 		q := keys[0]
 
-		article, err := readability.FromURL(q, 30*time.Second)
+		article, err := readability.FromURL(q, time.Duration(cfg.Timeout)*time.Second)
 		if err != nil {
 			log.Fatalf("failed to parse %s, %v\n", q, err)
 		}
@@ -62,40 +67,43 @@ func handler(tmpl *template.Template) http.HandlerFunc {
 	}
 }
 
-func writeResponse(w http.ResponseWriter, tmpl *template.Template, data articleData) {
-	if err := tmpl.Execute(w, data); err != nil {
+func writeResponse(w io.Writer, tmpl *template.Template, data articleData) {
+	err := tmpl.Execute(w, data)
+	if err != nil {
 		log.Println(err)
 	}
 }
 
-var (
-	//go:embed template.html
-	html string
-)
-
-func parseTemplate() *template.Template {
+func parseTemplate(html string) *template.Template {
 	tmpl := template.New("")
-	if _, err := tmpl.Parse(html); err != nil {
+
+	_, err := tmpl.Parse(html)
+	if err != nil {
 		log.Fatalln(err)
 	}
+
 	return tmpl
 }
 
 func main() {
-	cfg := config{}
-
+	cfg := &config{}
 	goconfig.File = "timoneiro.json"
-	err := goconfig.Parse(&cfg)
+
+	err := goconfig.Parse(cfg)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		return
 	}
 
-	tmpl := parseTemplate()
+	tmpl := parseTemplate(html)
+
 	http.HandleFunc("/favicon.ico", http.NotFound)
-	http.HandleFunc("/", handler(tmpl))
+	http.HandleFunc("/", handler(cfg, tmpl))
 
 	fmt.Println("listening on", cfg.Addr)
 
-	http.ListenAndServe(cfg.Addr, nil)
+	err = http.ListenAndServe(cfg.Addr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
