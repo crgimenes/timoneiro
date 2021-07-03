@@ -98,5 +98,8 @@ func main() {
 
 	fmt.Println("listening on", cfg.Addr)
 
-	http.ListenAndServe(cfg.Addr, nil)
+	err = http.ListenAndServe(cfg.Addr, nil)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
