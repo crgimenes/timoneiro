@@ -77,6 +77,7 @@ func parseTemplate() *template.Template {
 
 func main() {
 	tmpl := parseTemplate()
+	http.HandleFunc("/favicon.ico", http.NotFound)
 	http.HandleFunc("/", handler(tmpl))
 	http.ListenAndServe(":8080", nil)
 }
