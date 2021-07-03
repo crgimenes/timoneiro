@@ -27,6 +27,9 @@ type articleData struct {
 	Content string
 }
 
+//go:embed template.html
+var html string // nolint
+
 func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["q"]
@@ -65,15 +68,13 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 }
 
 func writeResponse(w io.Writer, tmpl *template.Template, data articleData) {
-	if err := tmpl.Execute(w, data); err != nil {
+	err := tmpl.Execute(w, data)
+	if err != nil {
 		log.Println(err)
 	}
 }
 
-//go:embed template.html
-var html string
-
-func parseTemplate() *template.Template {
+func parseTemplate(html string) *template.Template {
 	tmpl := template.New("")
 
 	_, err := tmpl.Parse(html)
@@ -94,7 +95,8 @@ func main() {
 		return
 	}
 
-	tmpl := parseTemplate()
+	tmpl := parseTemplate(html)
+
 	http.HandleFunc("/favicon.ico", http.NotFound)
 	http.HandleFunc("/", handler(cfg, tmpl))
 
