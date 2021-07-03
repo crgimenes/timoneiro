@@ -9,7 +9,13 @@ import (
 	"time"
 
 	"github.com/go-shiori/go-readability"
+	"github.com/gosidekick/goconfig"
+	_ "github.com/gosidekick/goconfig/json"
 )
+
+type config struct {
+	Addr string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
+}
 
 type articleData struct {
 	URL     string
@@ -76,8 +82,20 @@ func parseTemplate() *template.Template {
 }
 
 func main() {
+	cfg := config{}
+
+	goconfig.File = "timoneiro.json"
+	err := goconfig.Parse(&cfg)
+	if err != nil {
+		println(err)
+		return
+	}
+
 	tmpl := parseTemplate()
 	http.HandleFunc("/favicon.ico", http.NotFound)
 	http.HandleFunc("/", handler(tmpl))
-	http.ListenAndServe(":8080", nil)
+
+	fmt.Println("listening on", cfg.Addr)
+
+	http.ListenAndServe(cfg.Addr, nil)
 }
