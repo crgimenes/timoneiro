@@ -85,11 +85,11 @@ func parseTemplate() *template.Template {
 
 func main() {
 	cfg := config{}
-
 	goconfig.File = "timoneiro.json"
+
 	err := goconfig.Parse(&cfg)
 	if err != nil {
-		println(err)
+		fmt.Println(err)
 		return
 	}
 
