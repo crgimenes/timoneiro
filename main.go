@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"text/template"
@@ -62,7 +63,7 @@ func handler(tmpl *template.Template) http.HandlerFunc {
 	}
 }
 
-func writeResponse(w http.ResponseWriter, tmpl *template.Template, data articleData) {
+func writeResponse(w io.Writer, tmpl *template.Template, data articleData) {
 	if err := tmpl.Execute(w, data); err != nil {
 		log.Println(err)
 	}
