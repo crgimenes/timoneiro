@@ -74,9 +74,12 @@ var html string
 
 func parseTemplate() *template.Template {
 	tmpl := template.New("")
-	if _, err := tmpl.Parse(html); err != nil {
+
+	_, err := tmpl.Parse(html)
+	if err != nil {
 		log.Fatalln(err)
 	}
+
 	return tmpl
 }
 
