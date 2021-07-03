@@ -11,6 +11,14 @@ import (
 	"github.com/go-shiori/go-readability"
 )
 
+type articleData struct {
+	URL     string
+	Title   string
+	Byline  string
+	Excerpt string
+	Content string
+}
+
 func handler(tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["q"]
@@ -36,12 +44,20 @@ func handler(tmpl *template.Template) http.HandlerFunc {
 		fmt.Printf("Favicon : %s\n", article.Favicon)
 		fmt.Println()
 
-		writeResponse(w, tmpl, article)
+		data := articleData{
+			URL:     q,
+			Title:   article.Title,
+			Byline:  article.Byline,
+			Excerpt: article.Excerpt,
+			Content: article.Content,
+		}
+
+		writeResponse(w, tmpl, data)
 	}
 }
 
-func writeResponse(w http.ResponseWriter, tmpl *template.Template, article readability.Article) {
-	if err := tmpl.Execute(w, article); err != nil {
+func writeResponse(w http.ResponseWriter, tmpl *template.Template, data articleData) {
+	if err := tmpl.Execute(w, data); err != nil {
 		log.Println(err)
 	}
 }

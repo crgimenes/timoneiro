@@ -6,7 +6,11 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	</head>
 	<body>
-		<header><h1>{{ .Title }}</h1></header>
+		<header>
+			{{ with .Title }}<h1>{{ . }}</h1>{{ end }}
+			{{ with .Byline }}<h3>Author: {{ . }}</h1>{{ end }}
+			<h3>Original: <a href="{{ .URL }}">{{ .URL }}</a></h1>
+		</header>
 		<main>
 			<article>{{ .Content }}</article>
 		</main>
