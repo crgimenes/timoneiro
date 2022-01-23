@@ -6,6 +6,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
 	"text/template"
 	"time"
 
@@ -29,6 +32,17 @@ type articleData struct {
 
 //go:embed template.html
 var html string // nolint
+
+func getLinks(html string) []string {
+	links := []string{}
+
+	re := regexp.MustCompile(`<a href="(.*?)"`)
+	for _, match := range re.FindAllStringSubmatch(html, -1) {
+		links = append(links, match[1])
+	}
+
+	return links
+}
 
 func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +68,18 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 		fmt.Printf("Image   : %s\n", article.Image)
 		fmt.Printf("Favicon : %s\n", article.Favicon)
 		fmt.Println()
+
+		re := regexp.MustCompile(`<a href="(.*?)"`)
+		for _, match := range re.FindAllStringSubmatch(article.Content, -1) {
+			u := match[1]
+			ue := url.QueryEscape(u)
+			article.Content = strings.Replace(
+				article.Content,
+				u,
+				fmt.Sprintf("http://localhost:8080/?q=%v", ue),
+				-1)
+			fmt.Println("link:", u)
+		}
 
 		data := articleData{
 			URL:     q,
