@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	_ "embed"
 	"fmt"
 	"io"
@@ -31,7 +32,10 @@ type articleData struct {
 }
 
 //go:embed template.html
-var html string // nolint
+var html string
+
+//go:embed assets
+var assets embed.FS
 
 func getLinks(html string) []string {
 	links := []string{}
@@ -123,13 +127,20 @@ func main() {
 
 	tmpl := parseTemplate(html)
 
-	http.HandleFunc("/favicon.ico", http.NotFound)
-	http.HandleFunc("/", handler(cfg, tmpl))
+	mux := http.NewServeMux()
 
-	fmt.Println("listening on", cfg.Addr)
+	mux.Handle("/assets/", http.FileServer(http.FS(assets)))
+	mux.HandleFunc("/", handler(cfg, tmpl))
 
-	err = http.ListenAndServe(cfg.Addr, nil)
-	if err != nil {
-		fmt.Println(err)
+	s := &http.Server{
+		Handler:        mux,
+		Addr:           cfg.Addr,
+		ReadTimeout:    5 * time.Second,
+		WriteTimeout:   5 * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
+
+	log.Printf("Listening on port %s\n", cfg.Addr)
+	log.Fatal(s.ListenAndServe())
+
 }
