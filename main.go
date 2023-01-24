@@ -12,9 +12,9 @@ import (
 	"text/template"
 	"time"
 
+	goconfig "crg.eti.br/go/config"
+	_ "crg.eti.br/go/config/json"
 	"github.com/go-shiori/go-readability"
-	"github.com/gosidekick/goconfig"
-	_ "github.com/gosidekick/goconfig/json"
 )
 
 type config struct {
