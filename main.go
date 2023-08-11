@@ -15,7 +15,9 @@ import (
 
 	goconfig "crg.eti.br/go/config"
 	_ "crg.eti.br/go/config/json"
+	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/go-shiori/go-readability"
+	"github.com/gosimple/slug"
 )
 
 type config struct {
@@ -25,6 +27,10 @@ type config struct {
 
 type articleData struct {
 	URL     string
+	MDURL   string
+	MDSN    string
+	HTMLURL string
+	HTMLSN  string
 	Title   string
 	Byline  string
 	Excerpt string
@@ -53,10 +59,29 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 		keys, ok := r.URL.Query()["q"]
 		if !ok {
 			log.Println("'q' is missing")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("'q' parameter is missing"))
 			return
 		}
 
 		q := keys[0]
+
+		format := r.URL.Query().Get("f")
+
+		if format == "" {
+			format = "html"
+		}
+
+		if format != "html" && format != "md" {
+			log.Println("invalid format")
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte("invalid format"))
+			return
+		}
+
+		slugName := strings.ReplaceAll(q, "https://", "")
+		slugName = strings.ReplaceAll(slugName, "http://", "")
+		slugName = slug.Make(slugName)
 
 		article, err := readability.FromURL(q, time.Duration(cfg.Timeout)*time.Second)
 		if err != nil {
@@ -87,13 +112,47 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 
 		data := articleData{
 			URL:     q,
+			MDURL:   fmt.Sprintf("https://crg.eti.br/timoneiro?q=%v&f=md", url.QueryEscape(q)),
+			HTMLURL: fmt.Sprintf("https://crg.eti.br/timoneiro?q=%v&f=html", url.QueryEscape(q)),
+			MDSN:    slugName + ".md",
+			HTMLSN:  slugName + ".html",
 			Title:   article.Title,
 			Byline:  article.Byline,
 			Excerpt: article.Excerpt,
 			Content: article.Content,
 		}
 
-		writeResponse(w, tmpl, data)
+		tmpl := parseTemplate(html)
+
+		var b strings.Builder
+
+		err = tmpl.Execute(&b, data)
+		if err != nil {
+			log.Println(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("internal server error"))
+			return
+		}
+
+		if format == "md" {
+			converter := md.NewConverter("", true, nil)
+			markdown, err := converter.ConvertString(b.String())
+			if err != nil {
+				log.Fatal(err)
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("internal server error"))
+				return
+			}
+
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Write([]byte(markdown))
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write([]byte(b.String()))
+
+		return
 	}
 }
 
