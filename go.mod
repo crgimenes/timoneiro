@@ -5,7 +5,7 @@ go 1.23
 require (
 	crg.eti.br/go/config v1.5.0
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/go-shiori/go-readability v0.0.0-20240701094332-1070de7e32ef
+	github.com/go-shiori/go-readability v0.0.0-20240923125239-59a7bd165825
 	github.com/gosimple/slug v1.14.0
 )
 
