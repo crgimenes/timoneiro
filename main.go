@@ -8,21 +8,22 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"text/template"
 	"time"
 
-	goconfig "crg.eti.br/go/config"
-	_ "crg.eti.br/go/config/json"
+	readability "codeberg.org/readeck/go-readability/v2"
 	md "github.com/JohannesKaufmann/html-to-markdown"
-	"github.com/go-shiori/go-readability"
+	"github.com/crgimenes/filo"
 	"github.com/gosimple/slug"
 )
 
 type config struct {
-	Addr    string `json:"addr" cfg:"addr" cfgDefault:":8080" cfgRequired:"true"`
-	Timeout int64  `json:"timeout" cfg:"timeout" cfgDefault:"30" cfgRequired:"true"`
+	Addr    string
+	Timeout int
 }
 
 type articleData struct {
@@ -43,15 +44,16 @@ var html string
 //go:embed assets
 var assets embed.FS
 
-func getLinks(html string) []string {
-	links := []string{}
+var articleLinkRE = regexp.MustCompile(`<a href="([^"]*)"`)
 
-	re := regexp.MustCompile(`<a href="(.*?)"`)
-	for _, match := range re.FindAllStringSubmatch(html, -1) {
-		links = append(links, match[1])
-	}
-
-	return links
+func rewriteArticleLinks(content string) string {
+	return articleLinkRE.ReplaceAllStringFunc(content, func(link string) string {
+		match := articleLinkRE.FindStringSubmatch(link)
+		if len(match) != 2 {
+			return link
+		}
+		return fmt.Sprintf(`<a href="/?q=%s"`, url.QueryEscape(match[1]))
+	})
 }
 
 func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
@@ -59,12 +61,16 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 		keys, ok := r.URL.Query()["q"]
 		if !ok {
 			log.Println("'q' is missing")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("'q' parameter is missing"))
+			http.Error(w, "'q' parameter is missing", http.StatusBadRequest)
 			return
 		}
 
-		q := keys[0]
+		q := strings.TrimSpace(keys[0])
+		if q == "" {
+			log.Println("'q' is empty")
+			http.Error(w, "'q' parameter is empty", http.StatusBadRequest)
+			return
+		}
 
 		format := r.URL.Query().Get("f")
 
@@ -74,8 +80,19 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 
 		if format != "html" && format != "md" {
 			log.Println("invalid format")
-			w.WriteHeader(http.StatusBadRequest)
-			w.Write([]byte("invalid format"))
+			http.Error(w, "invalid format", http.StatusBadRequest)
+			return
+		}
+
+		articleURL, err := url.Parse(q)
+		if err != nil || articleURL.Scheme == "" || articleURL.Host == "" {
+			log.Println("invalid article url")
+			http.Error(w, "invalid article URL", http.StatusBadRequest)
+			return
+		}
+		if articleURL.Scheme != "http" && articleURL.Scheme != "https" {
+			log.Println("unsupported article url scheme")
+			http.Error(w, "unsupported article URL scheme", http.StatusBadRequest)
 			return
 		}
 
@@ -83,31 +100,18 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 		slugName = strings.ReplaceAll(slugName, "http://", "")
 		slugName = slug.Make(slugName)
 
-		article, err := readability.FromURL(q, time.Duration(cfg.Timeout)*time.Second)
+		article, err := readability.FromURL(articleURL.String(), time.Duration(cfg.Timeout)*time.Second)
 		if err != nil {
-			log.Fatalf("failed to parse %s, %v\n", q, err)
+			log.Printf("failed to parse article: %v", err)
+			http.Error(w, "failed to parse article", http.StatusBadGateway)
+			return
 		}
 
-		fmt.Printf("URL     : %s\n", q)
-		fmt.Printf("Title   : %s\n", article.Title)
-		fmt.Printf("Author  : %s\n", article.Byline)
-		fmt.Printf("Length  : %d\n", article.Length)
-		fmt.Printf("Excerpt : %s\n", article.Excerpt)
-		fmt.Printf("SiteName: %s\n", article.SiteName)
-		fmt.Printf("Image   : %s\n", article.Image)
-		fmt.Printf("Favicon : %s\n", article.Favicon)
-		fmt.Println()
-
-		re := regexp.MustCompile(`<a href="(.*?)"`)
-		for _, match := range re.FindAllStringSubmatch(article.Content, -1) {
-			u := match[1]
-			ue := url.QueryEscape(u)
-			article.Content = strings.Replace(
-				article.Content,
-				u,
-				fmt.Sprintf("http://localhost:8080/?q=%v", ue),
-				-1)
-			fmt.Println("link:", u)
+		var articleContent strings.Builder
+		if err := article.RenderHTML(&articleContent); err != nil {
+			log.Printf("failed to render article: %v", err)
+			http.Error(w, "failed to render article", http.StatusBadGateway)
+			return
 		}
 
 		data := articleData{
@@ -116,21 +120,18 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 			HTMLURL: fmt.Sprintf("https://crg.eti.br/timoneiro?q=%v&f=html", url.QueryEscape(q)),
 			MDSN:    slugName + ".md",
 			HTMLSN:  slugName + ".html",
-			Title:   article.Title,
-			Byline:  article.Byline,
-			Excerpt: article.Excerpt,
-			Content: article.Content,
+			Title:   article.Title(),
+			Byline:  article.Byline(),
+			Excerpt: article.Excerpt(),
+			Content: rewriteArticleLinks(articleContent.String()),
 		}
-
-		tmpl := parseTemplate(html)
 
 		var b strings.Builder
 
 		err = tmpl.Execute(&b, data)
 		if err != nil {
 			log.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("internal server error"))
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 
@@ -138,21 +139,22 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 			converter := md.NewConverter("", true, nil)
 			markdown, err := converter.ConvertString(b.String())
 			if err != nil {
-				log.Fatal(err)
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("internal server error"))
+				log.Println(err)
+				http.Error(w, "internal server error", http.StatusInternalServerError)
 				return
 			}
 
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.Write([]byte(markdown))
+			if _, err := io.WriteString(w, markdown); err != nil {
+				log.Printf("write markdown response: %v", err)
+			}
 			return
 		}
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(b.String()))
-
-		return
+		if _, err := io.WriteString(w, b.String()); err != nil {
+			log.Printf("write html response: %v", err)
+		}
 	}
 }
 
@@ -174,14 +176,73 @@ func parseTemplate(html string) *template.Template {
 	return tmpl
 }
 
-func main() {
-	cfg := &config{}
-	goconfig.File = "timoneiro.json"
+func defaultConfig() config {
+	return config{
+		Addr:    ":8080",
+		Timeout: 30,
+	}
+}
 
-	err := goconfig.Parse(cfg)
+func configFilePath() (string, error) {
+	home, err := os.UserHomeDir()
 	if err != nil {
-		fmt.Println(err)
-		return
+		return "", fmt.Errorf("get home directory: %w", err)
+	}
+
+	configPath := filepath.Join(home, ".config", "timoneiro")
+	if err := os.MkdirAll(configPath, 0o700); err != nil {
+		return "", fmt.Errorf("create config directory %s: %w", configPath, err)
+	}
+
+	return filepath.Join(configPath, "init.filo"), nil
+}
+
+func loadConfig() (*config, error) {
+	cfg := defaultConfig()
+
+	configFile, err := configFilePath()
+	if err != nil {
+		return nil, err
+	}
+
+	F := filo.New()
+	defer F.Close()
+
+	F.SetGlobal("Addr", cfg.Addr)
+	F.SetGlobal("Timeout", cfg.Timeout)
+
+	b, err := os.ReadFile(filepath.Clean(configFile))
+	if err != nil {
+		return nil, fmt.Errorf("read config %s: %w", configFile, err)
+	}
+
+	if err := F.DoString(string(b)); err != nil {
+		return nil, fmt.Errorf("execute config %s: %w", configFile, err)
+	}
+
+	cfg.Addr, err = F.GetString("Addr")
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Addr == "" {
+		return nil, fmt.Errorf("Addr must not be empty")
+	}
+
+	cfg.Timeout, err = F.GetInt("Timeout")
+	if err != nil {
+		return nil, err
+	}
+	if cfg.Timeout <= 0 {
+		return nil, fmt.Errorf("Timeout must be greater than zero")
+	}
+
+	return &cfg, nil
+}
+
+func main() {
+	cfg, err := loadConfig()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	tmpl := parseTemplate(html)

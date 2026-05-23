@@ -1,0 +1,6 @@
+;;; Timoneiro configuration file - Filo format
+;;; Copy this file to ~/.config/timoneiro/init.filo
+
+(do
+  (set Addr ":8080")
+  (set Timeout 30))

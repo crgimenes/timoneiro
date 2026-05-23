@@ -3,9 +3,9 @@ module timoneiro
 go 1.26.3
 
 require (
-	crg.eti.br/go/config v1.5.0
+	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/go-shiori/go-readability v0.0.0-20251205110129-5db1dc9836f0
+	github.com/crgimenes/filo v0.0.8
 	github.com/gosimple/slug v1.15.0
 )
 

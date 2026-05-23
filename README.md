@@ -18,6 +18,21 @@ A proxy that automatically converts articles to a readable format.
 
 Capturing articles, removing all extra content, leaving only the text and relevant parts, ready to be consumed by other programs like screen readers, ready to be cataloged, etc.
 
+## Configuration
+
+Timoneiro uses Filo for configuration. The default configuration file is `~/.config/timoneiro/init.filo`.
+
+```lisp
+;;; Timoneiro configuration file - Filo format
+
+(do
+  (set Addr ":8080")
+  (set Timeout 30))
+```
+
+- `Addr`: HTTP listen address.
+- `Timeout`: article fetch timeout in seconds.
+
 ## Road Map
 
 - Basic server and test the concept
@@ -25,4 +40,3 @@ Capturing articles, removing all extra content, leaving only the text and releva
 - Ability to be a directory, with a catalog of links to visit
 - Ability to be customize by the user, changing themes, etc.
 - Act as HTTP proxy
-
