@@ -44,7 +44,17 @@ var html string
 //go:embed assets
 var assets embed.FS
 
+//go:embed assets/index.html
+var urlFormHTML string
+
 var articleLinkRE = regexp.MustCompile(`<a href="([^"]*)"`)
+
+func showURLForm(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := io.WriteString(w, urlFormHTML); err != nil {
+		log.Printf("write url form response: %v", err)
+	}
+}
 
 func rewriteArticleLinks(content string) string {
 	return articleLinkRE.ReplaceAllStringFunc(content, func(link string) string {
@@ -60,15 +70,13 @@ func handler(cfg *config, tmpl *template.Template) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		keys, ok := r.URL.Query()["q"]
 		if !ok {
-			log.Println("'q' is missing")
-			http.Error(w, "'q' parameter is missing", http.StatusBadRequest)
+			showURLForm(w)
 			return
 		}
 
 		q := strings.TrimSpace(keys[0])
 		if q == "" {
-			log.Println("'q' is empty")
-			http.Error(w, "'q' parameter is empty", http.StatusBadRequest)
+			showURLForm(w)
 			return
 		}
 
@@ -183,6 +191,16 @@ func defaultConfig() config {
 	}
 }
 
+func defaultConfigFilo(cfg config) string {
+	return fmt.Sprintf(`;;; Timoneiro configuration file - Filo format
+;;; Created automatically. Edit this file to change the server settings.
+
+(do
+  (set Addr %q)
+  (set Timeout %d))
+`, cfg.Addr, cfg.Timeout)
+}
+
 func configFilePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -197,11 +215,31 @@ func configFilePath() (string, error) {
 	return filepath.Join(configPath, "init.filo"), nil
 }
 
+func ensureConfigFile(configFile string, cfg config) error {
+	cleanConfigFile := filepath.Clean(configFile)
+
+	_, err := os.Stat(cleanConfigFile)
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("stat config %s: %w", configFile, err)
+	}
+
+	if err := os.WriteFile(cleanConfigFile, []byte(defaultConfigFilo(cfg)), 0o600); err != nil {
+		return fmt.Errorf("create default config %s: %w", configFile, err)
+	}
+	return nil
+}
+
 func loadConfig() (*config, error) {
 	cfg := defaultConfig()
 
 	configFile, err := configFilePath()
 	if err != nil {
+		return nil, err
+	}
+	if err := ensureConfigFile(configFile, cfg); err != nil {
 		return nil, err
 	}
 

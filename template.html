@@ -1,22 +1,26 @@
-<html>
+<!doctype html>
+<html lang="en">
 	<head>
-		{{ with .Title }}<title>{{ . }}</title>{{ end }}
+		<meta charset="utf-8">
+		{{ with .Title }}<title>{{ . }}</title>{{ else }}<title>Timoneiro</title>{{ end }}
 		{{ with .Byline }}<meta name="author" content="{{ . }}">{{ end }}
 		{{ with .Excerpt }}<meta name="description" content="{{ . }}">{{ end }}
-        <link rel="stylesheet" href="https://crg.eti.br/crg.css">
+		<link rel="stylesheet" href="/assets/timoneiro.css">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	</head>
 	<body>
-		<header>
+		<header class="page-header">
+			<a class="brand" href="/">Timoneiro</a>
 			{{ with .Title }}<h1>{{ . }}</h1>{{ end }}
-            {{ with .Byline }}Autor: {{ . }}<br />{{ end }}
-            <a href="{{ .URL }}">Original article</a><br />
-            <a href="{{ .MDURL }}" download="{{ .MDSN }}">Download as markdown</a><br />
-            <a href="{{ .HTMLURL }}" download="{{ .HTMLSN }}">Download as HTML</a><br />
-            <hr />
+			{{ with .Byline }}<p class="byline">Author: {{ . }}</p>{{ end }}
+			<nav class="article-actions" aria-label="Article actions">
+				<a href="{{ .URL }}">Original article</a>
+				<a href="{{ .MDURL }}" download="{{ .MDSN }}">Markdown</a>
+				<a href="{{ .HTMLURL }}" download="{{ .HTMLSN }}">HTML</a>
+			</nav>
 		</header>
 		<main>
-			<article>{{ .Content }}</article>
+			<article class="article-body">{{ .Content }}</article>
 		</main>
 	</body>
 </html>

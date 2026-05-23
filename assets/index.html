@@ -1,8 +1,24 @@
-<!DOCTYPE html>
-<html>
-<form action="http://localhost:8080/">
-    <input name="q" type="url" placeholder="https://article...">
-    <input type="submit" value="Submit">
-</form>
-
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Timoneiro</title>
+		<link rel="stylesheet" href="/assets/timoneiro.css">
+	</head>
+	<body>
+		<main class="entry-view">
+			<section class="url-panel" aria-labelledby="url-title">
+				<p class="brand">Timoneiro</p>
+				<h1 id="url-title">Read without clutter</h1>
+				<form class="url-form" method="get" action="/">
+					<label for="q">Article URL</label>
+					<div class="url-row">
+						<input id="q" name="q" type="url" placeholder="https://example.com/article" required autofocus>
+						<button type="submit">Send</button>
+					</div>
+				</form>
+			</section>
+		</main>
+	</body>
 </html>

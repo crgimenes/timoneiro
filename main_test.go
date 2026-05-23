@@ -1,8 +1,11 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -37,6 +40,42 @@ func TestLoadConfigFromFilo(t *testing.T) {
 	}
 	if cfg.Timeout != 45 {
 		t.Fatalf("Timeout = %d, want 45", cfg.Timeout)
+	}
+}
+
+func TestLoadConfigCreatesDefaultFile(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := loadConfig()
+	if err != nil {
+		t.Fatalf("loadConfig: %v", err)
+	}
+
+	if cfg.Addr != ":8080" {
+		t.Fatalf("Addr = %q, want %q", cfg.Addr, ":8080")
+	}
+	if cfg.Timeout != 30 {
+		t.Fatalf("Timeout = %d, want 30", cfg.Timeout)
+	}
+
+	configFile := filepath.Join(home, ".config", "timoneiro", "init.filo")
+	b, err := os.ReadFile(configFile)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+
+	want := defaultConfigFilo(defaultConfig())
+	if string(b) != want {
+		t.Fatalf("created config = %q, want %q", string(b), want)
+	}
+
+	info, err := os.Stat(configFile)
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("config file mode = %v, want 0600", got)
 	}
 }
 
@@ -84,5 +123,43 @@ func TestRewriteArticleLinksOnlyChangesHref(t *testing.T) {
 	got := rewriteArticleLinks(in)
 	if got != want {
 		t.Fatalf("rewriteArticleLinks = %q, want %q", got, want)
+	}
+}
+
+func TestHandlerShowsURLFormWhenQueryMissing(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+
+	handler(&config{Addr: ":8080", Timeout: 30}, parseTemplate(html)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	body := rec.Body.String()
+	for _, want := range []string{
+		`<link rel="stylesheet" href="/assets/timoneiro.css">`,
+		`<form class="url-form" method="get" action="/">`,
+		`name="q"`,
+		`type="url"`,
+		`<button type="submit">Send</button>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("response body does not contain %q: %s", want, body)
+		}
+	}
+}
+
+func TestHandlerShowsURLFormWhenQueryEmpty(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/?q=", nil)
+	rec := httptest.NewRecorder()
+
+	handler(&config{Addr: ":8080", Timeout: 30}, parseTemplate(html)).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), `name="q"`) {
+		t.Fatalf("response body does not contain q input: %s", rec.Body.String())
 	}
 }
