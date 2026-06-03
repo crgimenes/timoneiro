@@ -1,11 +1,11 @@
 module timoneiro
 
-go 1.26.3
+go 1.26
 
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.1
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/crgimenes/filo v0.0.8
+	github.com/crgimenes/filo v0.0.9
 	github.com/gosimple/slug v1.15.0
 )
 
