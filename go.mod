@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.2
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/crgimenes/filo v0.0.21
+	github.com/crgimenes/filo v0.0.23
 	github.com/gosimple/slug v1.15.0
 )
 
