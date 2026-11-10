@@ -5,7 +5,7 @@ go 1.27.1
 require (
 	codeberg.org/readeck/go-readability/v2 v2.1.3
 	github.com/JohannesKaufmann/html-to-markdown v1.6.0
-	github.com/crgimenes/filo v0.1.1
+	github.com/crgimenes/filo v0.1.2
 	github.com/gosimple/slug v1.15.0
 )
 
@@ -18,5 +18,5 @@ require (
 	github.com/itlightning/dateparse v0.2.1 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
 	golang.org/x/net v0.62.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 )
