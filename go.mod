@@ -17,6 +17,6 @@ require (
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/itlightning/dateparse v0.2.1 // indirect
 	github.com/yuin/goldmark v1.7.8 // indirect
-	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 )
